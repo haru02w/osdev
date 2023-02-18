@@ -9,6 +9,8 @@ For now, it's a Hello Word bootloader in 16-bit real-mode, but it's fine
 - nasm
 - make
 - qemu
+- mtools
+- dosfstools
 ```
 ---
 
