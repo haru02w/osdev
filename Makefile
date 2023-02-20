@@ -19,6 +19,7 @@ $(BUILD_DIR)/floppy.img: bootloader kernel
 	mkfs.fat -F 12 -n "HWOS" $(BUILD_DIR)/floppy.img 
 	dd if=$(BUILD_DIR)/boot.bin of=$(BUILD_DIR)/floppy.img conv=notrunc #do not truncate the file
 	mcopy -i $(BUILD_DIR)/floppy.img $(BUILD_DIR)/kernel.bin "::kernel.bin"
+	mcopy -i $(BUILD_DIR)/floppy.img ./test.txt "::test.txt"
 
 $(BUILD_DIR)/boot.bin: $(BOOTLOADER_DIR)/boot.asm
 	$(ASM) $(BOOTLOADER_DIR)/boot.asm -f bin -o $(BUILD_DIR)/boot.bin
