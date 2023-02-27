@@ -1,40 +1,48 @@
-ASM=nasm
-BOOTLOADER_DIR=./src
-KERNEL_DIR=./src/kernel
-BUILD_DIR=./build
+TARGET_ARCH := amd64
+BUILD_DIR := ./build
+OBJ_DIR := $(BUILD_DIR)/obj
+SRC_DIR := ./src
+INCLUDE_DIR := $(SRC_DIR)/include
 
-all: image bootloader kernel debug
+# SRCS := $(shell find $(SRC_DIR/**) -name '*.c' -or -name '*.S')
+# OBJS := $(patsubst %,$(BUILD_DIR)/%.o,$(notdir $(basename $(SRCS))))
 
-bootloader: $(BUILD_DIR)/boot.bin mkdir
+C_SRC_FILES := $(shell find $(SRC_DIR) -name '*.c')
+C_OBJ_FILES := $(patsubst %,$(BUILD_DIR)/%.o,$(notdir $(basename $(C_SRC_FILES))))
 
-kernel: $(BUILD_DIR)/kernel.bin mkdir
+ASM_SRC_FILES := $(shell find $(SRC_DIR) -name '*.S')
+ASM_OBJ_FILES := $(patsubst %,$(BUILD_DIR)/%.o,$(notdir $(basename $(ASM_SRC_FILES))))
 
-image: $(BUILD_DIR)/floppy.img 
 
-run: 
-	qemu-system-i386 -fda $(BUILD_DIR)/floppy.img 
+#WARNING
+FINAL_BIN := kernel.elf64
 
-$(BUILD_DIR)/floppy.img: bootloader kernel
-	dd if=/dev/zero of=$(BUILD_DIR)/floppy.img bs=512 count=2880 #1440k size of a floppy disk
-	mkfs.fat -F 12 -n "HWOS" $(BUILD_DIR)/floppy.img 
-	dd if=$(BUILD_DIR)/boot.bin of=$(BUILD_DIR)/floppy.img conv=notrunc #do not truncate the file
-	mcopy -i $(BUILD_DIR)/floppy.img $(BUILD_DIR)/kernel.bin "::kernel.bin"
-	mcopy -i $(BUILD_DIR)/floppy.img ./test.txt "::test.txt"
+.SUFFIXES:
 
-$(BUILD_DIR)/boot.bin: $(BOOTLOADER_DIR)/boot.asm
-	$(ASM) $(BOOTLOADER_DIR)/boot.asm -f bin -o $(BUILD_DIR)/boot.bin
+.PHONY: all
+.PHONY: qemu
+.PHONY: clean
 
-$(BUILD_DIR)/kernel.bin: $(KERNEL_DIR)/kernel.asm
-	$(ASM) $(KERNEL_DIR)/kernel.asm -f bin -o $(BUILD_DIR)/kernel.bin
+all: $(C_OBJ_FILES) $(ASM_OBJ_FILES)
+	ld -n -T $(SRC_DIR)/linker.ld -o $(BUILD_DIR)/$(FINAL_BIN) $^
 
-mkdir:
-	mkdir -p $(BUILD_DIR)
+$(C_OBJ_FILES): $(BUILD_DIR)/%.o : $(C_SRC_FILES)
+	mkdir -p $(dir $@)
+	gcc -c -I $(INCLUDE_DIR) -ffreestanding -nostdlib -o $@ $(shell find $(SRC_DIR) -name '$(patsubst %,%.c,$(notdir $(basename $@))'))
+
+$(ASM_OBJ_FILES): $(BUILD_DIR)/%.o : $(ASM_SRC_FILES)
+	mkdir -p $(dir $@)
+	gcc -c -I $(INCLUDE_DIR) -ffreestanding -nostdlib -o $@ $(shell find $(SRC_DIR) -name '$(patsubst %,%.S,$(notdir $(basename $@))'))
+
+qemu: all
+	mkdir -p vm/boot/grub
+	cp $(BUILD_DIR)/$(FINAL_BIN) vm/boot/
+	cp $(SRC_DIR)/boot/multiboot2/grub.cfg vm/boot/grub/
+	grub-mkrescue /usr/lib/grub/i386-pc -o vm/haruOSw.iso vm
+	
+qemurun: qemu
+	qemu-system-x86_64 -hda vm/haruOSw.iso
 clean:
-	rm -Rf $(BUILD_DIR)/*
-debug:
-	qemu-system-i386 -fda $(BUILD_DIR)/floppy.img -S -s &
-	gdb -ex 'target remote localhost:1234' \
-    		-ex 'set architecture i8086' \
-    		-ex 'break *0x7c00' \
-    		-ex 'continue'
+	rm -Rf ./build
 
+# curl -L https://git.savannah.gnu.org/cgit/grub.git/plain/doc/multiboot2.h?h=multiboot2 > ./boot/multiboot2/amd64/multiboot2.h
