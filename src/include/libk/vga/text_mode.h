@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define VGA_BUFFER_START (uint16_t *)0xB8000
+#define VGA_BUFFER_START (uint16_t *)(0xB8000 + 0xFFFFFF8000000000)
 static const size_t VGA_MAX_COLUMNS = 80;
 static const size_t VGA_MAX_ROWS = 25;
 
@@ -28,7 +28,9 @@ typedef enum {
 static inline uint8_t vga_color(vga_color_t foreground, vga_color_t background,
 				bool blink);
 static inline uint16_t vga_entry(uint8_t vga_color, uint8_t ascii_char);
-size_t strlen(const char *str);
-void term_init();
-void vga_kputs(const char *str);
+void vga_set_color(vga_color_t foreground, vga_color_t background, bool blink);
+void vga_term_init();
+void vga_clean_row(size_t vga_term_row);
+void vga_shift_term_up(size_t shift_rows);
 void vga_kputc(uint8_t ascii_char);
+void vga_kputs(const char *str);

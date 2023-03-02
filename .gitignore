@@ -52,5 +52,7 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-vm/
+sysroot/
+scripts/
 build/
+*.iso

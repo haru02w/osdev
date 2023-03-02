@@ -1,5 +1,4 @@
-#include <stddef.h>
-#include <vga_text_mode.h>
+#include <vga/text_mode.h>
 
 size_t vga_term_row;
 size_t vga_term_column;
@@ -16,15 +15,12 @@ static inline uint16_t vga_entry(uint8_t vga_color, uint8_t ascii_char)
 	return (vga_color << 8) | ascii_char;
 }
 
-size_t strlen(const char *str)
+void vga_set_color(vga_color_t foreground, vga_color_t background, bool blink)
 {
-	size_t i = 0;
-	while (str[i])
-		i++;
-	return i;
+	vga_term_color = vga_color(foreground, background, blink);
 }
 
-void term_init()
+void vga_term_init()
 {
 	vga_term_row = 0;
 	vga_term_column = 0;
@@ -35,46 +31,60 @@ void term_init()
 		for (size_t column = 0; column < VGA_MAX_COLUMNS; column++)
 			vga_term_buffer[row * VGA_MAX_COLUMNS + column] =
 				vga_entry(vga_term_color, ' ');
+	return;
+}
+
+void vga_clean_row(size_t vga_term_row)
+{
+	for (size_t i = 0; i < VGA_MAX_COLUMNS; i++)
+		vga_term_buffer[vga_term_row * VGA_MAX_COLUMNS + i] =
+			vga_entry(vga_term_color, ' ');
+	return;
+}
+void vga_shift_term_up(size_t shift_rows)
+{
+	for (size_t row = shift_rows; row < VGA_MAX_ROWS; row++)
+		for (size_t column = 0; column < VGA_MAX_COLUMNS; column++)
+			vga_term_buffer[(row - shift_rows) * VGA_MAX_COLUMNS +
+					column] =
+				vga_term_buffer[row * VGA_MAX_COLUMNS + column];
 }
 
 void vga_kputc(uint8_t ascii_char)
 {
-	/* is printable?*/
-	if (ascii_char >= ' ' && ascii_char <= '~') { //WARNING - make a library
+	switch (ascii_char) {
+	case ' ' ... '~':
+		if ((vga_term_column %= VGA_MAX_COLUMNS) == 0)
+			++vga_term_row;
+		if (vga_term_row >= VGA_MAX_ROWS) {
+			vga_shift_term_up(vga_term_row - (VGA_MAX_ROWS - 1));
+			vga_term_row = VGA_MAX_ROWS - 1;
+			vga_clean_row(vga_term_row);
+		}
 		vga_term_buffer[vga_term_row * VGA_MAX_COLUMNS +
 				vga_term_column] =
 			vga_entry(vga_term_color, ascii_char);
 		++vga_term_column;
-		if ((vga_term_column %= VGA_MAX_COLUMNS) == 0)
-			++vga_term_row;
-		return;
-	}
-
-	switch (ascii_char) {
+		break;
 	case '\a':
 	case '\b':
 	case '\e':
 	case '\f':
-		vga_kputs(" Key not implemented yet! ");
+		//TODO
 		break;
 	case '\n':
-		//TODO
-		// while (--vga_term_column >= 0) {
-		// 	vga_term_buffer[vga_term_row * VGA_MAX_COLUMNS +
-		// 			vga_term_column] =
-		// 		vga_entry(vga_term_color, ascii_char);
-		// }
-		break;
+		++vga_term_row;
 	case '\r':
-		//TODO
+		vga_term_column = 0;
 		break;
 	case '\t':
-		//TODO
+		vga_term_column += 8;
 		break;
 	case '\v':
 		//TODO
 		break;
 	}
+	return;
 }
 
 void vga_kputs(const char *str)
@@ -84,4 +94,5 @@ void vga_kputs(const char *str)
 		vga_kputc(str[i]);
 		++i;
 	}
+	return;
 }

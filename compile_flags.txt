@@ -1,2 +1,4 @@
 -I
-src/include/
+src/include/libk
+-I
+src/include/libc

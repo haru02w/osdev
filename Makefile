@@ -2,7 +2,7 @@ TARGET_ARCH := amd64
 BUILD_DIR := ./build
 OBJ_DIR := $(BUILD_DIR)/obj
 SRC_DIR := ./src
-INCLUDE_DIR := $(SRC_DIR)/include
+INCLUDE_DIR := -I$(SRC_DIR)/include/libk/ -I$(SRC_DIR)/include/libc/
 
 # SRCS := $(shell find $(SRC_DIR/**) -name '*.c' -or -name '*.S')
 # OBJS := $(patsubst %,$(BUILD_DIR)/%.o,$(notdir $(basename $(SRCS))))
@@ -28,21 +28,24 @@ all: $(C_OBJ_FILES) $(ASM_OBJ_FILES)
 
 $(C_OBJ_FILES): $(BUILD_DIR)/%.o : $(C_SRC_FILES)
 	mkdir -p $(dir $@)
-	gcc -c -I $(INCLUDE_DIR) -ffreestanding -nostdlib -o $@ $(shell find $(SRC_DIR) -name '$(patsubst %,%.c,$(notdir $(basename $@))'))
+	gcc -g -c $(INCLUDE_DIR) -ffreestanding -nostdlib -o $@ $(shell find $(SRC_DIR) -name '$(patsubst %,%.c,$(notdir $(basename $@))'))
 
 $(ASM_OBJ_FILES): $(BUILD_DIR)/%.o : $(ASM_SRC_FILES)
 	mkdir -p $(dir $@)
-	gcc -c -I $(INCLUDE_DIR) -ffreestanding -nostdlib -o $@ $(shell find $(SRC_DIR) -name '$(patsubst %,%.S,$(notdir $(basename $@))'))
+	gcc -g -c -I $(INCLUDE_DIR) -ffreestanding -nostdlib -o $@ $(shell find $(SRC_DIR) -name '$(patsubst %,%.S,$(notdir $(basename $@))'))
 
 qemu: all
-	mkdir -p vm/boot/grub
-	cp $(BUILD_DIR)/$(FINAL_BIN) vm/boot/
-	cp $(SRC_DIR)/boot/multiboot2/grub.cfg vm/boot/grub/
-	grub-mkrescue /usr/lib/grub/i386-pc -o vm/haruOSw.iso vm
+	rm -f haruOSw.iso
+	mkdir -p sysroot/boot/grub
+	cp $(BUILD_DIR)/$(FINAL_BIN) sysroot/boot/
+	cp $(SRC_DIR)/arch/amd64/multiboot2/grub.cfg sysroot/boot/grub/
+	grub-mkrescue /usr/lib/grub/i386-pc -o haruOSw.iso sysroot/
 	
 qemurun: qemu
-	qemu-system-x86_64 -hda vm/haruOSw.iso
+	qemu-system-x86_64 -hda haruOSw.iso
 clean:
 	rm -Rf ./build
-
+qemudebug: qemu
+	qemu-system-x86_64 -S -s -hda haruOSw.iso &
+	gdb
 # curl -L https://git.savannah.gnu.org/cgit/grub.git/plain/doc/multiboot2.h?h=multiboot2 > ./boot/multiboot2/amd64/multiboot2.h
